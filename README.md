@@ -1,5 +1,5 @@
-# cmd-ikalas
+# KLI
 
-Ikalas in command line
+Fast command line
 
 node index.js
