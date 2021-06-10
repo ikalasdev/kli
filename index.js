@@ -48,6 +48,28 @@ historyCommands.forEach(function (historyCommand) {
 var command = "";
 
 process.stdin.setRawMode(true);
+
+const showHelpMsg = () => {
+  log("\nKLI 1.0\t\t\tKli Manual\t\t\tKLI(1)\n");
+  log(chalk.blueBright("Name"));
+  log("\t kli - A free solution that offers fast and online tools.\n");
+  log(chalk.blueBright("Synopsis"));
+  log(`\t ${chalk.greenBright("kli [OPTIONS]...")}.\n`);
+  log(chalk.blue("Description"));
+  log(
+    "\t kli is command line version of Ikalas solution, offers free online, simple and efficient tools. Easily, you can convert documents, manipulate videos or record your screen online.\n"
+  );
+  log(`\t ${chalk.greenBright("-l, --list")}`);
+  log("\t\tlist all kli functions.\n");
+  log(`\t ${chalk.greenBright("-h, --help")}`);
+  log("\t\tshow this manual page.\n");
+  log("kli 1.0\t\t\t10/06/2021\t\t\tKLI(1)\n");
+};
+
+if (process.argv.length > 2 && ["--help", "-h"].includes(process.argv[2])) {
+  showHelpMsg();
+}
+
 process.stdin.on("keypress", (str, key) => {
   if (key.ctrl && key.name === "c") {
     process.exit();
@@ -81,7 +103,7 @@ process.stdin.on("keypress", (str, key) => {
     previewSuggestedCommands = previewSuggestedCommands.slice(0, 10);
     previewSuggestedCommands.forEach(function (suggestedCommand) {
       log(
-        chalk.blue(suggestedCommand.name) +
+        chalk.blueBright(suggestedCommand.name) +
           " " +
           chalk.italic(suggestedCommand.summary ? suggestedCommand.summary : "")
       );
