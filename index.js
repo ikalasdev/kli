@@ -13,14 +13,16 @@ const log = console.log;
 
 const API_URL = process.env.IKALAS_API_URL;
 
+let ikalas_commands = [];
+
 if (process.env.ENABLE_IKALAS == "yes") {
   axios.get(`${API_URL}/api/v1/functions`).then((result) => {
     if (result != null && result.data != null) {
-      result.data.forEach(function (fn) {
-        suggestedCommands.push({
+      ikalas_commands = result.data.map(function (fn) {
+        return {
           name: fn.nameFunction,
           summary: fn.summaryFunction,
-        });
+        };
       });
     }
   });
@@ -37,14 +39,6 @@ console.log("\033[2J");
 var suggestedCommands = [];
 
 var historyCommands = shellHistory();
-historyCommands.forEach(function (historyCommand) {
-  var found = suggestedCommands.find(function (element) {
-    return element.name == historyCommand;
-  });
-  if (!found) {
-    suggestedCommands.push({ name: historyCommand });
-  }
-});
 var command = "";
 
 process.stdin.setRawMode(true);
@@ -93,14 +87,15 @@ process.stdin.on("keypress", (str, key) => {
     console.log(">>" + command);
     console.log("");
 
-    var previewSuggestedCommands = [];
-    suggestedCommands.forEach(function (suggestedCommand) {
-      if (suggestedCommand.name.indexOf(command) >= 0) {
-        previewSuggestedCommands.push(suggestedCommand);
-      }
-    });
+    suggestedCommands = [
+      ...ikalas_commands,
+      ...historyCommands.map((element) => ({ name: element })),
+    ];
 
-    previewSuggestedCommands = previewSuggestedCommands.slice(0, 10);
+    const previewSuggestedCommands = suggestedCommands
+      .filter((element) => element.name.indexOf(command) >= 0)
+      .slice(0, 10);
+
     previewSuggestedCommands.forEach(function (suggestedCommand) {
       log(
         chalk.blueBright(suggestedCommand.name) +
