@@ -24,6 +24,7 @@ if (process.env.ENABLE_IKALAS == "yes") {
           summary: fn.summaryFunction,
         };
       });
+      suggestedCommands.unshift(...ikalas_commands);
     }
   });
 }
@@ -36,9 +37,9 @@ Array.prototype.unique = function () {
 
 readline.emitKeypressEvents(process.stdin);
 console.log("\033[2J");
-var suggestedCommands = [];
 
 var historyCommands = shellHistory();
+let suggestedCommands = historyCommands.map((element) => ({ name: element }));
 var command = "";
 
 process.stdin.setRawMode(true);
@@ -64,11 +65,6 @@ process.stdin.on("keypress", (str, key) => {
     console.log("\033[2J");
     console.log(">>" + command);
     console.log("");
-
-    suggestedCommands = [
-      ...ikalas_commands,
-      ...historyCommands.map((element) => ({ name: element })),
-    ];
 
     const previewSuggestedCommands = suggestedCommands
       .filter((element) => element.name.indexOf(command) >= 0)
