@@ -13,6 +13,16 @@ const log = console.log;
 
 const API_URL = process.env.IKALAS_API_URL;
 const MAX_SUGGESTIONS = 10;
+const PROMPT_PREFIX = "Ikalas >> ";
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  prompt: PROMPT_PREFIX,
+});
+
+readline.emitKeypressEvents(process.stdin, rl);
+if (process.stdin.isTTY) process.stdin.setRawMode(true);
 
 let ikalas_commands = [];
 if (process.env.ENABLE_IKALAS == "yes") {
@@ -52,14 +62,13 @@ if (process.argv.length > 2 && ["--help", "-h"].includes(process.argv[2])) {
   process.exit();
 }
 
+rl.prompt(true);
+
 Array.prototype.unique = function () {
   return this.filter(function (value, index, self) {
     return self.indexOf(value) === index;
   });
 };
-
-readline.emitKeypressEvents(process.stdin);
-console.log("\033[2J");
 
 const historyCommands = shellHistory();
 
@@ -67,78 +76,86 @@ let suggestedCommands = historyCommands.map((element) => ({ name: element }));
 
 let previewSuggestedCommands = [];
 
+const showHoveredCommand = (cmd) => {
+  log(chalk.red(cmd.name) + " " + chalk.italic(cmd.summary ? cmd.summary : ""));
+};
+
+const showCommand = (cmd) => {
+  log(
+    chalk.blueBright(cmd.name) +
+      " " +
+      chalk.italic(cmd.summary ? cmd.summary : "")
+  );
+};
+
 const previewSuggestions = (position = 0) => {
-  console.log("\033[2J");
-  console.log(">>" + command);
-  console.log("");
+  console.clear();
+  rl.prompt(true);
+  log("\n");
   if (!command) {
     suggestedCommands
       .slice(0, MAX_SUGGESTIONS)
       .forEach(function (suggestedCommand, index) {
         if (position === index) {
-          return log(
-            chalk.red(suggestedCommand.name) +
-              " " +
-              chalk.italic(
-                suggestedCommand.summary ? suggestedCommand.summary : ""
-              )
-          );
+          return showHoveredCommand(suggestedCommand);
         }
-        log(
-          chalk.blueBright(suggestedCommand.name) +
-            " " +
-            chalk.italic(
-              suggestedCommand.summary ? suggestedCommand.summary : ""
-            )
-        );
+        showCommand(suggestedCommand);
       });
+    readline.cursorTo(process.stdin, rl.getPrompt().length, 0);
     return;
   }
   previewSuggestedCommands.forEach(function (suggestedCommand, index) {
     if (position === index) {
-      return log(
-        chalk.red(suggestedCommand.name) +
-          " " +
-          chalk.italic(suggestedCommand.summary ? suggestedCommand.summary : "")
-      );
+      return showHoveredCommand(suggestedCommand);
     }
-    log(
-      chalk.blueBright(suggestedCommand.name) +
-        " " +
-        chalk.italic(suggestedCommand.summary ? suggestedCommand.summary : "")
-    );
+    showCommand(suggestedCommand);
   });
+
+  readline.cursorTo(process.stdin, rl.getPrompt().length + command.length, 0);
 };
 
 var command = "";
 let position = 0;
 
+const executeCommand = (status, output, error) => {
+  console.clear();
+  rl.prompt(true);
+  rl.write(command);
+  log("\n");
+  if (error) {
+    log(chalk.red(error));
+  }
+  if (status === 0) {
+    // log(chalk.bgGray.greenBright(output));
+    log(output);
+  }
+  readline.cursorTo(process.stdin, rl.getPrompt().length + command.length, 0);
+};
 
-process.stdin.setRawMode(true);
-process.stdin.on("keypress", (str, key) => {
+const handleKeyPress = (_str, key) => {
   if (key.ctrl && key.name === "c") {
     return process.exit();
   }
 
   if (key.name === "return") {
-    console.log("\033[2J");
-    shelljs.exec(command, function (status, output) {
-      // console.log('Exit status:', status);
-      // console.log('Program output:', output);
-    });
-    // process.exit();
-    console.log(">>");
-    command = "";
+    shelljs.exec(
+      command,
+      {
+        stdio: "inherit",
+      },
+      executeCommand
+    );
     return;
   }
 
   if (key.name === "backspace") {
+    position = 0;
     command = command.substring(0, command.length - 1);
     previewSuggestions(0);
     return;
   }
 
-  if (!["up", "down", "backspace"].includes(key.name)) {
+  if (!["up", "down", "backspace", "right", "left"].includes(key.name)) {
     command += key.sequence;
 
     previewSuggestedCommands = [];
@@ -164,4 +181,6 @@ process.stdin.on("keypress", (str, key) => {
     }
     return;
   }
-});
+};
+
+process.stdin.on("keypress", handleKeyPress);
