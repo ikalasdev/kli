@@ -74,7 +74,7 @@ const historyCommands = shellHistory();
 
 let suggestedCommands = historyCommands.map((element) => ({ name: element }));
 
-let previewSuggestedCommands = [];
+let viewedSuggestions = suggestedCommands.slice(0, MAX_SUGGESTIONS);
 
 const showHoveredCommand = (cmd) => {
   log(chalk.red(cmd.name) + " " + chalk.italic(cmd.summary ? cmd.summary : ""));
@@ -88,29 +88,16 @@ const showCommand = (cmd) => {
   );
 };
 
-const previewSuggestions = (position = 0) => {
+const showSuggestions = (position = 0) => {
   console.clear();
   rl.prompt(true);
   log("\n");
-  if (!command) {
-    suggestedCommands
-      .slice(0, MAX_SUGGESTIONS)
-      .forEach(function (suggestedCommand, index) {
-        if (position === index) {
-          return showHoveredCommand(suggestedCommand);
-        }
-        showCommand(suggestedCommand);
-      });
-    readline.cursorTo(process.stdin, rl.getPrompt().length, 0);
-    return;
-  }
-  previewSuggestedCommands.forEach(function (suggestedCommand, index) {
+  viewedSuggestions.forEach(function (suggestedCommand, index) {
     if (position === index) {
       return showHoveredCommand(suggestedCommand);
     }
     showCommand(suggestedCommand);
   });
-
   readline.cursorTo(process.stdin, rl.getPrompt().length + command.length, 0);
 };
 
@@ -138,8 +125,18 @@ const handleKeyPress = (_str, key) => {
   }
 
   if (key.name === "return") {
+    console.clear();
+    rl.prompt(true);
+    let cmdToExecute;
+    if (viewedSuggestions.length === 0) {
+      // no suggestions, execute user input command
+      cmdToExecute = command;
+    }
+    if (viewedSuggestions.length >= 1) {
+      cmdToExecute = viewedSuggestions[position].name;
+    }
     shelljs.exec(
-      command,
+      cmdToExecute,
       {
         stdio: "inherit",
       },
@@ -151,25 +148,33 @@ const handleKeyPress = (_str, key) => {
   if (key.name === "backspace") {
     position = 0;
     command = command.substring(0, command.length - 1);
-    previewSuggestions(0);
+    if (command) {
+      viewedSuggestions = suggestedCommands
+        .filter((element) => element.name.indexOf(command) >= 0)
+        .slice(0, MAX_SUGGESTIONS);
+    }
+    showSuggestions(0);
     return;
   }
 
   if (!["up", "down", "backspace", "right", "left"].includes(key.name)) {
     command += key.sequence;
 
-    previewSuggestedCommands = [];
-    previewSuggestedCommands = suggestedCommands
+    viewedSuggestions = [];
+    viewedSuggestions = suggestedCommands
       .filter((element) => element.name.indexOf(command) >= 0)
       .slice(0, MAX_SUGGESTIONS);
 
-    previewSuggestions();
+    showSuggestions();
   }
 
   if (key.name == "down") {
-    if (position < MAX_SUGGESTIONS - 1) {
+    if (
+      position < MAX_SUGGESTIONS - 1 &&
+      position < viewedSuggestions.length - 1
+    ) {
       position++;
-      previewSuggestions(position);
+      showSuggestions(position);
     }
     return;
   }
@@ -177,7 +182,7 @@ const handleKeyPress = (_str, key) => {
   if (key.name == "up") {
     if (position > 0) {
       position--;
-      previewSuggestions(position);
+      showSuggestions(position);
     }
     return;
   }
