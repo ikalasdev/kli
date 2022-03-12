@@ -13,6 +13,16 @@ const log = console.log;
 
 const API_URL = process.env.IKALAS_API_URL;
 const MAX_SUGGESTIONS = 10;
+const PROMPT_PREFIX = "Ikalas >> ";
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  prompt: PROMPT_PREFIX,
+});
+
+readline.emitKeypressEvents(process.stdin, rl);
+if (process.stdin.isTTY) process.stdin.setRawMode(true);
 
 
 axios.defaults.headers.common['apikey'] = process.env.IKALAS_API_KEY //
@@ -55,107 +65,119 @@ if (process.argv.length > 2 && ["--help", "-h"].includes(process.argv[2])) {
   process.exit();
 }
 
+rl.prompt(true);
+
 Array.prototype.unique = function () {
   return this.filter(function (value, index, self) {
     return self.indexOf(value) === index;
   });
 };
 
-readline.emitKeypressEvents(process.stdin);
-console.log("\033[2J");
-
 const historyCommands = shellHistory();
 
 let suggestedCommands = historyCommands.map((element) => ({ name: element }));
 
-let previewSuggestedCommands = [];
+let viewedSuggestions = suggestedCommands.slice(0, MAX_SUGGESTIONS);
 
-const previewSuggestions = (position = 0) => {
-  console.log("\033[2J");
-  console.log(">>" + command);
-  console.log("");
-  if (!command) {
-    suggestedCommands
-      .slice(0, MAX_SUGGESTIONS)
-      .forEach(function (suggestedCommand, index) {
-        if (position === index) {
-          return log(
-            chalk.red(suggestedCommand.name) +
-              " " +
-              chalk.italic(
-                suggestedCommand.summary ? suggestedCommand.summary : ""
-              )
-          );
-        }
-        log(
-          chalk.blueBright(suggestedCommand.name) +
-            " " +
-            chalk.italic(
-              suggestedCommand.summary ? suggestedCommand.summary : ""
-            )
-        );
-      });
-    return;
-  }
-  previewSuggestedCommands.forEach(function (suggestedCommand, index) {
+const showHoveredCommand = (cmd) => {
+  log(chalk.red(cmd.name) + " " + chalk.italic(cmd.summary ? cmd.summary : ""));
+};
+
+const showCommand = (cmd) => {
+  log(
+    chalk.blueBright(cmd.name) +
+      " " +
+      chalk.italic(cmd.summary ? cmd.summary : "")
+  );
+};
+
+const showSuggestions = (position = 0) => {
+  console.clear();
+  rl.prompt(true);
+  log("\n");
+  viewedSuggestions.forEach(function (suggestedCommand, index) {
     if (position === index) {
-      return log(
-        chalk.red(suggestedCommand.name) +
-          " " +
-          chalk.italic(suggestedCommand.summary ? suggestedCommand.summary : "")
-      );
+      return showHoveredCommand(suggestedCommand);
     }
-    log(
-      chalk.blueBright(suggestedCommand.name) +
-        " " +
-        chalk.italic(suggestedCommand.summary ? suggestedCommand.summary : "")
-    );
+    showCommand(suggestedCommand);
   });
+  readline.cursorTo(process.stdin, rl.getPrompt().length + command.length, 0);
 };
 
 var command = "";
 let position = 0;
 
+const executeCommand = (status, output, error) => {
+  console.clear();
+  rl.prompt(true);
+  rl.write(command);
+  log("\n");
+  if (error) {
+    log(chalk.red(error));
+  }
+  if (status === 0) {
+    // log(chalk.bgGray.greenBright(output));
+    log(output);
+  }
+  readline.cursorTo(process.stdin, rl.getPrompt().length + command.length, 0);
+};
 
-process.stdin.setRawMode(true);
-process.stdin.on("keypress", (str, key) => {
+const handleKeyPress = (_str, key) => {
   if (key.ctrl && key.name === "c") {
     return process.exit();
   }
 
   if (key.name === "return") {
-    console.log("\033[2J");
-    shelljs.exec(command, function (status, output) {
-      // console.log('Exit status:', status);
-      // console.log('Program output:', output);
-    });
-    // process.exit();
-    console.log(">>");
-    command = "";
+    console.clear();
+    rl.prompt(true);
+    let cmdToExecute;
+    if (viewedSuggestions.length === 0) {
+      // no suggestions, execute user input command
+      cmdToExecute = command;
+    }
+    if (viewedSuggestions.length >= 1) {
+      cmdToExecute = viewedSuggestions[position].name;
+    }
+    shelljs.exec(
+      cmdToExecute,
+      {
+        stdio: "inherit",
+      },
+      executeCommand
+    );
     return;
   }
 
   if (key.name === "backspace") {
+    position = 0;
     command = command.substring(0, command.length - 1);
-    previewSuggestions(0);
+    if (command) {
+      viewedSuggestions = suggestedCommands
+        .filter((element) => element.name.indexOf(command) >= 0)
+        .slice(0, MAX_SUGGESTIONS);
+    }
+    showSuggestions(0);
     return;
   }
 
-  if (!["up", "down", "backspace"].includes(key.name)) {
+  if (!["up", "down", "backspace", "right", "left"].includes(key.name)) {
     command += key.sequence;
 
-    previewSuggestedCommands = [];
-    previewSuggestedCommands = suggestedCommands
+    viewedSuggestions = [];
+    viewedSuggestions = suggestedCommands
       .filter((element) => element.name.indexOf(command) >= 0)
       .slice(0, MAX_SUGGESTIONS);
 
-    previewSuggestions();
+    showSuggestions();
   }
 
   if (key.name == "down") {
-    if (position < MAX_SUGGESTIONS - 1) {
+    if (
+      position < MAX_SUGGESTIONS - 1 &&
+      position < viewedSuggestions.length - 1
+    ) {
       position++;
-      previewSuggestions(position);
+      showSuggestions(position);
     }
     return;
   }
@@ -163,8 +185,10 @@ process.stdin.on("keypress", (str, key) => {
   if (key.name == "up") {
     if (position > 0) {
       position--;
-      previewSuggestions(position);
+      showSuggestions(position);
     }
     return;
   }
-});
+};
+
+process.stdin.on("keypress", handleKeyPress);
