@@ -14,6 +14,9 @@ const log = console.log;
 const API_URL = process.env.IKALAS_API_URL;
 const MAX_SUGGESTIONS = 10;
 
+
+axios.defaults.headers.common['apikey'] = process.env.IKALAS_API_KEY //
+
 let ikalas_commands = [];
 if (process.env.ENABLE_IKALAS == "yes") {
   axios.get(`${API_URL}/api/v1/functions`).then((result) => {
