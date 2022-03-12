@@ -9,6 +9,9 @@ const shellHistory = require("shell-history");
 const shelljs = require("shelljs");
 const axios = require("axios");
 const chalk = require("chalk");
+const { execSync } = require('child_process');
+
+
 const log = console.log;
 
 const API_URL = process.env.IKALAS_API_URL;
@@ -101,25 +104,47 @@ const showSuggestions = (position = 0) => {
     }
     showCommand(suggestedCommand);
   });
-  readline.cursorTo(process.stdin, rl.getPrompt().length + command.length, 0);
+  // readline.cursorTo(process.stdin, rl.getPrompt().length + command.length, 0);
 };
 
 var command = "";
 let position = 0;
 
-const executeCommand = (status, output, error) => {
+const executeCommand = async (status, output, error) => {
   console.clear();
-  rl.prompt(true);
-  rl.write(command);
-  log("\n");
-  if (error) {
-    log(chalk.red(error));
+
+  let result = await axios.get(`${API_URL}/kli/functions/${command}`)
+  
+  let fnObject = null;
+  if (result != null && result.data != null) {
+    fnObject = result.data;
   }
-  if (status === 0) {
-    // log(chalk.bgGray.greenBright(output));
-    log(output);
+  
+
+  if(fnObject.languageFunction=="bash"){
+    execSync(fnObject.bodyFunction, {stdio: 'inherit'});
+  }else{
+    result = await axios.post(`${API_URL}/kli/execute-function/${command}`)
+    if (result != null && result.data != null) {
+      console.log(result.data)
+    }
   }
-  readline.cursorTo(process.stdin, rl.getPrompt().length + command.length, 0);
+
+  
+
+
+    // rl.write(fnObject.bodyFunction)
+  // rl.prompt(true);
+  // rl.write(command);
+  // log("\n");
+  // if (error) {
+  //   log(chalk.red(error));
+  // }
+  // if (status === 0) {
+  //   // log(chalk.bgGray.greenBright(output));
+  //   log(output);
+  // }
+  // readline.cursorTo(process.stdin, rl.getPrompt().length + command.length, 0);
 };
 
 const handleKeyPress = (_str, key) => {
