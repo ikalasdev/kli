@@ -32,7 +32,7 @@ axios.defaults.headers.common['apikey'] = process.env.IKALAS_API_KEY //
 
 let ikalas_commands = [];
 if (process.env.ENABLE_IKALAS == "yes") {
-  axios.get(`${API_URL}/api/v1/functions`).then((result) => {
+  axios.get(`${API_URL}/kli/functions`).then((result) => {
     if (result != null && result.data != null) {
       ikalas_commands = result.data.map(function (fn) {
         return {
@@ -48,9 +48,9 @@ if (process.env.ENABLE_IKALAS == "yes") {
 
 const showHelpMsg = () => {
   log("\nKLI 1.0\t\t\tKli Manual\t\t\tKLI(1)\n");
-  log(chalk.blueBright("Name"));
+  log(chalk.green("Name"));
   log("\t kli - A free solution that offers fast and online tools.\n");
-  log(chalk.blueBright("Synopsis"));
+  log(chalk.green("Synopsis"));
   log(`\t ${chalk.greenBright("kli [OPTIONS]...")}.\n`);
   log(chalk.blue("Description"));
   log(
@@ -88,7 +88,7 @@ const showHoveredCommand = (cmd) => {
 
 const showCommand = (cmd) => {
   log(
-    chalk.blueBright(cmd.name) +
+    chalk.green(cmd.name) +
       " " +
       chalk.italic(cmd.summary ? cmd.summary : "")
   );
