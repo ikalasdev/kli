@@ -18,6 +18,8 @@ const API_URL = process.env.IKALAS_API_URL;
 const MAX_SUGGESTIONS = 10;
 const PROMPT_PREFIX = "Ikalas >> ";
 
+let HOVERED_COMMAND = null;
+
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
@@ -83,6 +85,7 @@ let suggestedCommands = historyCommands.map((element) => ({ name: element }));
 let viewedSuggestions = suggestedCommands.slice(0, MAX_SUGGESTIONS);
 
 const showHoveredCommand = (cmd) => {
+  HOVERED_COMMAND = cmd;
   log(chalk.red(cmd.name) + " " + chalk.italic(cmd.summary ? cmd.summary : ""));
 };
 
@@ -113,7 +116,11 @@ let position = 0;
 const executeCommand = async (status, output, error) => {
   console.clear();
 
-  let result = await axios.get(`${API_URL}/kli/functions/${command}`)
+  let cmdToExecute = command;
+  if(HOVERED_COMMAND!=null){
+    cmdToExecute = HOVERED_COMMAND.name;
+  }
+  let result = await axios.get(`${API_URL}/kli/functions/${cmdToExecute}`)
   
   let fnObject = null;
   if (result != null && result.data != null) {
@@ -124,7 +131,7 @@ const executeCommand = async (status, output, error) => {
   if(fnObject.languageFunction=="bash"){
     execSync(fnObject.bodyFunction, {stdio: 'inherit'});
   }else{
-    result = await axios.post(`${API_URL}/kli/execute-function/${command}`)
+    result = await axios.post(`${API_URL}/kli/execute-function/${cmdToExecute}`)
     if (result != null && result.data != null) {
       console.log(result.data)
     }
